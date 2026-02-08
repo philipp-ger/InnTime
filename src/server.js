@@ -214,6 +214,18 @@ app.get('/api/admin/employees', (req, res) => {
   });
 });
 
+// API: Delete employee
+app.delete('/api/admin/employee/:id', (req, res) => {
+  const { id } = req.params;
+  
+  db.run('DELETE FROM employees WHERE id = ?', [id], function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'Fehler beim Löschen: ' + err.message });
+    }
+    res.json({ success: true, message: 'Mitarbeiter gelöscht!' });
+  });
+});
+
 // API: Get monthly report
 app.get('/api/admin/report/:year/:month', (req, res) => {
   const { year, month } = req.params;

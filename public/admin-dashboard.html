@@ -532,8 +532,11 @@
                     employees.forEach(emp => {
                         list.innerHTML += `
                             <div class="employee-item">
-                                <span class="name">${emp.name}</span>
-                                <span style="color: #999; font-size: 12px;">ID: ${emp.id.substring(0, 8)}...</span>
+                                <div>
+                                    <span class="name">${emp.name}</span>
+                                    <span style="color: #999; font-size: 12px; margin-left: 10px;">ID: ${emp.id.substring(0, 8)}...</span>
+                                </div>
+                                <button onclick="deleteEmployee('${emp.id}', '${emp.name}')" style="padding: 6px 12px; background: #f56565; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">🗑️ Löschen</button>
                             </div>
                         `;
                     });
@@ -586,6 +589,26 @@
                 btn.disabled = false;
                 btn.textContent = 'Hinzufügen';
             });
+        }
+
+        function deleteEmployee(id, name) {
+            if (!confirm(`Wirklich Mitarbeiter "${name}" löschen? Diese Aktion kann nicht rückgängig gemacht werden!`)) {
+                return;
+            }
+
+            fetch(`/api/admin/employee/${id}`, { method: 'DELETE' })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(`✅ ${data.message}`);
+                        loadEmployeeLinks();
+                    } else {
+                        alert(`❌ Fehler: ${data.error}`);
+                    }
+                })
+                .catch(err => {
+                    alert(`❌ Fehler: ${err.message}`);
+                });
         }
 
         function copyToClipboard(text) {
