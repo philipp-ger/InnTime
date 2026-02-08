@@ -28,6 +28,8 @@ db.serialize(() => {
       name TEXT NOT NULL,
       uuid TEXT UNIQUE NOT NULL,
       hourly_wage REAL DEFAULT 12.00,
+      fixed_salary REAL DEFAULT 0,
+      salary_type TEXT DEFAULT 'hourly',
       employment_type TEXT DEFAULT 'Festangestellter',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -60,6 +62,8 @@ db.serialize(() => {
     if (err) return;
     const hasHourlyWage = columns.some(col => col.name === 'hourly_wage');
     const hasEmploymentType = columns.some(col => col.name === 'employment_type');
+    const hasSalaryType = columns.some(col => col.name === 'salary_type');
+    const hasFixedSalary = columns.some(col => col.name === 'fixed_salary');
 
     if (!hasHourlyWage) {
       db.run('ALTER TABLE employees ADD COLUMN hourly_wage REAL DEFAULT 12.00', (err) => {
@@ -72,6 +76,20 @@ db.serialize(() => {
       db.run('ALTER TABLE employees ADD COLUMN employment_type TEXT DEFAULT \'Festangestellter\'', (err) => {
         if (err) console.error('Fehler beim Hinzufügen von employment_type:', err);
         else console.log('✅ Spalte employment_type hinzugefügt');
+      });
+    }
+
+    if (!hasSalaryType) {
+      db.run('ALTER TABLE employees ADD COLUMN salary_type TEXT DEFAULT \'hourly\'', (err) => {
+        if (err) console.error('Fehler beim Hinzufügen von salary_type:', err);
+        else console.log('✅ Spalte salary_type hinzugefügt');
+      });
+    }
+
+    if (!hasFixedSalary) {
+      db.run('ALTER TABLE employees ADD COLUMN fixed_salary REAL DEFAULT 0', (err) => {
+        if (err) console.error('Fehler beim Hinzufügen von fixed_salary:', err);
+        else console.log('✅ Spalte fixed_salary hinzugefügt');
       });
     }
   });
@@ -289,7 +307,7 @@ app.post('/api/admin/employee', (req, res) => {
 
 // API: Get all employees (für Admin)
 app.get('/api/admin/employees', (req, res) => {
-  db.all('SELECT id, name, hourly_wage, employment_type FROM employees ORDER BY name', (err, employees) => {
+  db.all('SELECT id, name, hourly_wage, fixed_salary, salary_type, employment_type FROM employees ORDER BY name', (err, employees) => {
     if (err) {
       return res.status(500).json({ error: 'Fehler beim Abrufen' });
     }
@@ -424,15 +442,19 @@ app.get('/api/admin/export/:year/:month', (req, res) => {
 // API: Update employee
 app.put('/api/admin/employee/:id', (req, res) => {
   const { id } = req.params;
-  const { name, hourly_wage, employment_type } = req.body;
+  const { name, hourly_wage, fixed_salary, salary_type, employment_type } = req.body;
 
   if (!name || name.trim() === '') {
     return res.status(400).json({ error: 'Name ist erforderlich' });
   }
 
+  const salaryTypeValue = salary_type || 'hourly';
+  const wageValue = salaryTypeValue === 'hourly' ? (hourly_wage || 12.00) : 0;
+  const salaryValue = salaryTypeValue === 'fixed' ? (fixed_salary || 0) : 0;
+
   db.run(
-    'UPDATE employees SET name = ?, hourly_wage = ?, employment_type = ? WHERE id = ?',
-    [name.trim(), hourly_wage || 12.00, employment_type || 'Festangestellter', id],
+    'UPDATE employees SET name = ?, hourly_wage = ?, fixed_salary = ?, salary_type = ?, employment_type = ? WHERE id = ?',
+    [name.trim(), wageValue, salaryValue, salaryTypeValue, employment_type || 'Festangestellter', id],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
