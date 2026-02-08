@@ -577,39 +577,62 @@ app.put('/api/admin/employee/:id', (req, res) => {
                   }
 
                   // Falls noch KEINE alte Lohnhistorie existiert, fülle rückwirkend
-                  if (count.count === 0 && oldEmployee && oldEmployee.created_at) {
-                    const createdDate = new Date(oldEmployee.created_at);
-                    const createdYear = createdDate.getFullYear();
-                    const createdMonth = createdDate.getMonth() + 1;
-
-                    // Fülle alle Monate vom Erstellungsdatum bis zum Vormonat mit altem Lohn
-                    let fillYear = createdYear;
-                    let fillMonth = createdMonth;
-
-                    const fillMonths = [];
-                    while (fillYear < year || (fillYear === year && fillMonth < month)) {
-                      fillMonths.push({ y: fillYear, m: fillMonth });
-                      fillMonth++;
-                      if (fillMonth > 12) {
-                        fillMonth = 1;
-                        fillYear++;
-                      }
-                    }
-
-                    fillMonths.forEach(({ y, m }) => {
-                      db.run(
-                        `INSERT OR IGNORE INTO employee_salary_history (employee_id, year, month, hourly_wage, fixed_salary, salary_type)
-                         VALUES (?, ?, ?, ?, ?, ?)`,
-                        [id, y, m, oldEmployee.hourly_wage, oldEmployee.fixed_salary, oldEmployee.salary_type],
-                        (err) => {
-                          if (err) console.error('Fehler beim Füllen der alten Monate:', err);
+                  if (count.count === 0 && oldEmployee) {
+                    // Finde den frühesten Timesheet-Eintrag für diesen Mitarbeiter
+                    db.get(
+                      'SELECT MIN(date) as earliest_date FROM timesheets WHERE employee_id = ?',
+                      [id],
+                      (err, result) => {
+                        if (err || !result || !result.earliest_date) {
+                          // Keine Timesheet-Einträge, nutze created_at
+                          if (oldEmployee.created_at) {
+                            const createdDate = new Date(oldEmployee.created_at);
+                            const createdYear = createdDate.getFullYear();
+                            const createdMonth = createdDate.getMonth() + 1;
+                            fillHistoryFromDate(createdYear, createdMonth);
+                          }
+                          return;
                         }
-                      );
-                    });
+
+                        // Nutze das früheste Timesheet-Datum
+                        const [fillYear, fillMonth] = result.earliest_date.split('-').map(Number);
+                        fillHistoryFromDate(fillYear, fillMonth);
+                      }
+                    );
+
+                    function fillHistoryFromDate(startYear, startMonth) {
+                      const fillMonths = [];
+                      let fillYear = startYear;
+                      let fillMonth = startMonth;
+
+                      // Fülle alle Monate vom frühesten Datum bis zum Vormonat
+                      while (fillYear < year || (fillYear === year && fillMonth < month)) {
+                        fillMonths.push({ y: fillYear, m: fillMonth });
+                        fillMonth++;
+                        if (fillMonth > 12) {
+                          fillMonth = 1;
+                          fillYear++;
+                        }
+                      }
+
+                      fillMonths.forEach(({ y, m }) => {
+                        db.run(
+                          `INSERT OR IGNORE INTO employee_salary_history (employee_id, year, month, hourly_wage, fixed_salary, salary_type)
+                           VALUES (?, ?, ?, ?, ?, ?)`,
+                          [id, y, m, oldEmployee.hourly_wage, oldEmployee.fixed_salary, oldEmployee.salary_type],
+                          (err) => {
+                            if (err) console.error('Fehler beim Füllen der alten Monate:', err);
+                          }
+                        );
+                      });
+
+                      // Nach dem Füllen, weiter mit dem Update
+                      updateEmployeeAndHistory();
+                    }
+                  } else {
+                    updateEmployeeAndHistory();
                   }
 
-                  // Jetzt update den aktuellen Mitarbeiter und setze neue Lohnhistorie
-                  updateEmployeeAndHistory();
                 }
               );
             } else {
