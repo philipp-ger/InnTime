@@ -651,6 +651,79 @@ app.put('/api/admin/employee/:id', (req, res) => {
   );
 });
 
+// API: Import salary data from CSV
+app.post('/api/admin/import-salary', (req, res) => {
+  const { csvData } = req.body;
+  
+  if (!csvData) {
+    return res.status(400).json({ error: 'CSV-Daten erforderlich' });
+  }
+
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) {
+    return res.status(400).json({ error: 'CSV muss mindestens einen Header und eine Datenzeile haben' });
+  }
+
+  // Parse Header
+  const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  let imported = 0;
+  let errors = [];
+
+  // Parse Datenzeilen
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const parts = line.split(',').map(p => p.trim().replace(/"/g, ''));
+    const data = {};
+    header.forEach((h, idx) => {
+      data[h] = parts[idx];
+    });
+
+    // Finde Mitarbeiter nach Name
+    db.get('SELECT id FROM employees WHERE name = ?', [data['Mitarbeitername']], (err, employee) => {
+      if (err || !employee) {
+        errors.push(`Mitarbeiter "${data['Mitarbeitername']}" nicht gefunden`);
+        return;
+      }
+
+      const year = parseInt(data['Jahr'] || new Date().getFullYear());
+      const month = parseInt(data['Monat'] || new Date().getMonth() + 1);
+      const salaryType = data['Gehaltstyp'] === 'Festgehalt' ? 'fixed' : 'hourly';
+      
+      let hourlyWage = 0;
+      let fixedSalary = 0;
+
+      if (salaryType === 'hourly') {
+        hourlyWage = parseFloat(data['Stundenlohn/Festgehalt']?.replace(/[€\/h]/g, '')) || 0;
+      } else {
+        fixedSalary = parseFloat(data['Stundenlohn/Festgehalt']?.replace(/€/g, '')) || 0;
+      }
+
+      // Speichere Lohnhistorie
+      db.run(
+        `INSERT INTO employee_salary_history (employee_id, year, month, hourly_wage, fixed_salary, salary_type)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(employee_id, year, month) DO UPDATE SET
+         hourly_wage = excluded.hourly_wage, fixed_salary = excluded.fixed_salary, salary_type = excluded.salary_type`,
+        [employee.id, year, month, hourlyWage, fixedSalary, salaryType],
+        (err) => {
+          if (!err) imported++;
+        }
+      );
+    });
+  }
+
+  setTimeout(() => {
+    res.json({ 
+      success: true, 
+      imported: imported,
+      errors: errors,
+      message: `${imported} Einträge importiert${errors.length > 0 ? `, ${errors.length} Fehler` : ''}`
+    });
+  }, 500);
+});
+
 // ==================== START SERVER ====================
 
 app.listen(PORT, () => {

@@ -523,6 +523,15 @@
         </div>
 
         <div class="add-employee-section">
+            <h2>⬆️ Lohnhistorie importieren</h2>
+            <div class="add-employee-form">
+                <input type="file" id="importFile" accept=".csv" placeholder="CSV-Datei wählen">
+                <button class="btn-add-employee" onclick="importSalaryData()">Importieren</button>
+            </div>
+            <div id="importMessage" class="add-employee-message"></div>
+        </div>
+
+        <div class="add-employee-section">
             <h2>➕ Neuen Mitarbeiter hinzufügen</h2>
             <div class="add-employee-form">
                 <input type="text" id="newEmployeeName" placeholder="Mitarbeitername eingeben..." maxlength="100">
@@ -736,6 +745,51 @@
                 .catch(err => {
                     console.error('Fehler beim Laden von Mitarbeitern:', err);
                 });
+        }
+
+        function importSalaryData() {
+            const fileInput = document.getElementById('importFile');
+            const msgDiv = document.getElementById('importMessage');
+
+            if (!fileInput.files.length) {
+                msgDiv.textContent = '❌ Bitte wählen Sie eine CSV-Datei aus!';
+                msgDiv.className = 'add-employee-message error';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const csvData = e.target.result;
+
+                fetch('/api/admin/import-salary', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csvData })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        msgDiv.textContent = `✅ ${data.message}`;
+                        msgDiv.className = 'add-employee-message success';
+                        fileInput.value = '';
+                        loadReport();
+                        setTimeout(() => {
+                            msgDiv.className = 'add-employee-message';
+                        }, 5000);
+                    } else {
+                        msgDiv.textContent = `❌ Fehler: ${data.error}`;
+                        msgDiv.className = 'add-employee-message error';
+                    }
+                })
+                .catch(err => {
+                    msgDiv.textContent = `❌ Fehler: ${err.message}`;
+                    msgDiv.className = 'add-employee-message error';
+                });
+            };
+
+            reader.readAsText(file);
         }
 
         function addNewEmployee() {
