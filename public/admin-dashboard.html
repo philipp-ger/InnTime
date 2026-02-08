@@ -524,6 +524,16 @@
         </div>
 
         <div class="add-employee-section">
+            <h2>👥 Mitarbeiter Daten (Import/Export)</h2>
+            <div class="add-employee-form">
+                <button class="btn-add-employee" onclick="exportEmployees()" style="background: #48bb78;">📥 Mitarbeiter exportieren</button>
+                <input type="file" id="employeeImportFile" accept=".csv" placeholder="CSV-Datei wählen" style="flex: 1; min-width: 200px;">
+                <button class="btn-add-employee" onclick="importEmployeeData()" style="background: #667eea;">⬆️ Mitarbeiter importieren</button>
+            </div>
+            <div id="employeeImportMessage" class="add-employee-message"></div>
+        </div>
+
+        <div class="add-employee-section">
             <h2>⬆️ Lohnhistorie importieren</h2>
             <div class="add-employee-form">
                 <input type="file" id="importFile" accept=".csv" placeholder="CSV-Datei wählen">
@@ -745,6 +755,82 @@
                 .catch(err => {
                     console.error('Fehler beim Laden von Mitarbeitern:', err);
                 });
+        }
+
+        function exportEmployees() {
+            const msgDiv = document.getElementById('employeeImportMessage');
+            msgDiv.textContent = '⏳ Exportiere Mitarbeiter...';
+            msgDiv.className = 'add-employee-message';
+
+            fetch('/api/admin/export/employees')
+                .then(res => res.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `fit-inn-mitarbeiter-${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+
+                    msgDiv.textContent = '✅ Mitarbeiter erfolgreich exportiert!';
+                    msgDiv.className = 'add-employee-message success';
+                    setTimeout(() => {
+                        msgDiv.className = 'add-employee-message';
+                    }, 3000);
+                })
+                .catch(err => {
+                    msgDiv.textContent = `❌ Fehler beim Export: ${err.message}`;
+                    msgDiv.className = 'add-employee-message error';
+                });
+        }
+
+        function importEmployeeData() {
+            const fileInput = document.getElementById('employeeImportFile');
+            const msgDiv = document.getElementById('employeeImportMessage');
+
+            if (!fileInput.files.length) {
+                msgDiv.textContent = '❌ Bitte wählen Sie eine CSV-Datei aus!';
+                msgDiv.className = 'add-employee-message error';
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                const csvData = e.target.result;
+                msgDiv.textContent = '⏳ Importiere Mitarbeiter...';
+                msgDiv.className = 'add-employee-message';
+
+                fetch('/api/admin/import/employees', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ csvData })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        msgDiv.textContent = `✅ ${data.message}`;
+                        msgDiv.className = 'add-employee-message success';
+                        fileInput.value = '';
+                        loadEmployeeLinks();
+                        setTimeout(() => {
+                            msgDiv.className = 'add-employee-message';
+                        }, 5000);
+                    } else {
+                        msgDiv.textContent = `❌ Fehler: ${data.error}`;
+                        msgDiv.className = 'add-employee-message error';
+                    }
+                })
+                .catch(err => {
+                    msgDiv.textContent = `❌ Fehler: ${err.message}`;
+                    msgDiv.className = 'add-employee-message error';
+                });
+            };
+
+            reader.readAsText(file);
         }
 
         function importSalaryData() {

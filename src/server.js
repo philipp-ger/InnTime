@@ -818,6 +818,139 @@ app.post('/api/admin/import-salary', (req, res) => {
   }, 500);
 });
 
+// ==================== EMPLOYEE EXPORT ====================
+
+app.get('/api/admin/export/employees', (req, res) => {
+  db.all('SELECT id, first_name, last_name, email, hourly_wage, fixed_salary, salary_type FROM employees ORDER BY first_name', (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Fehler beim Export' });
+    }
+
+    // CSV Header
+    const csv = ['ID,Vorname,Nachname,Email,Stundenlohn,Festgehalt,Gehaltstyp'];
+    
+    rows.forEach(row => {
+      const hourlyWage = row.hourly_wage || '';
+      const fixedSalary = row.fixed_salary || '';
+      const salaryType = row.salary_type || 'hourly';
+      csv.push(`${row.id},"${row.first_name}","${row.last_name}","${row.email}","${hourlyWage}","${fixedSalary}","${salaryType}"`);
+    });
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=fit-inn-mitarbeiter.csv');
+    res.send(csv.join('\n'));
+  });
+});
+
+// ==================== EMPLOYEE IMPORT ====================
+
+app.post('/api/admin/import/employees', (req, res) => {
+  const { csvData } = req.body;
+  
+  if (!csvData) {
+    return res.status(400).json({ error: 'CSV-Daten erforderlich' });
+  }
+
+  const lines = csvData.trim().split('\n');
+  if (lines.length < 2) {
+    return res.status(400).json({ error: 'CSV muss mindestens einen Header und eine Datenzeile haben' });
+  }
+
+  // Parse Header
+  const header = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+  let imported = 0;
+  let updated = 0;
+  let errors = [];
+
+  // Validiere Header
+  const requiredFields = ['Vorname', 'Nachname', 'Email'];
+  const hasRequiredFields = requiredFields.every(field => header.includes(field));
+  if (!hasRequiredFields) {
+    return res.status(400).json({ error: 'CSV muss folgende Spalten enthalten: ' + requiredFields.join(', ') });
+  }
+
+  // Parse Datenzeilen
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // CSV Parser: Beachte quoted fields
+    const parts = [];
+    let current = '';
+    let inQuotes = false;
+    for (let j = 0; j < line.length; j++) {
+      const char = line[j];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        parts.push(current.trim().replace(/^"|"$/g, ''));
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    parts.push(current.trim().replace(/^"|"$/g, ''));
+
+    const data = {};
+    header.forEach((h, idx) => {
+      data[h] = parts[idx] || '';
+    });
+
+    const firstName = data['Vorname'];
+    const lastName = data['Nachname'];
+    const email = data['Email'];
+    const hourlyWage = parseFloat(data['Stundenlohn'] || 0) || 0;
+    const fixedSalary = parseFloat(data['Festgehalt'] || 0) || 0;
+    const salaryType = data['Gehaltstyp'] || 'hourly';
+
+    if (!firstName || !lastName || !email) {
+      errors.push(`Zeile ${i + 1}: Vorname, Nachname und Email erforderlich`);
+      continue;
+    }
+
+    // Check ob Mitarbeiter existiert (nach Email)
+    db.get('SELECT id FROM employees WHERE email = ?', [email], (err, existing) => {
+      if (err) {
+        errors.push(`Zeile ${i + 1}: Datenbankfehler`);
+        return;
+      }
+
+      if (existing) {
+        // Update existierenden Mitarbeiter
+        db.run(
+          `UPDATE employees SET first_name = ?, last_name = ?, hourly_wage = ?, fixed_salary = ?, salary_type = ? WHERE id = ?`,
+          [firstName, lastName, hourlyWage, fixedSalary, salaryType, existing.id],
+          (err) => {
+            if (!err) updated++;
+          }
+        );
+      } else {
+        // Erstelle neuen Mitarbeiter
+        const name = `${firstName} ${lastName}`;
+        db.run(
+          `INSERT INTO employees (first_name, last_name, name, email, hourly_wage, fixed_salary, salary_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [firstName, lastName, name, email, hourlyWage, fixedSalary, salaryType],
+          (err) => {
+            if (!err) imported++;
+            else errors.push(`Zeile ${i + 1}: ${err.message}`);
+          }
+        );
+      }
+    });
+  }
+
+  setTimeout(() => {
+    res.json({ 
+      success: true, 
+      imported: imported,
+      updated: updated,
+      errors: errors,
+      message: `${imported} neue Mitarbeiter importiert, ${updated} aktualisiert${errors.length > 0 ? `, ${errors.length} Fehler` : ''}`
+    });
+  }, 500);
+});
+
 // ==================== START SERVER ====================
 
 app.listen(PORT, () => {
