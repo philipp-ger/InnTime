@@ -27,6 +27,8 @@ db.serialize(() => {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       uuid TEXT UNIQUE NOT NULL,
+      hourly_wage REAL DEFAULT 12.00,
+      employment_type TEXT DEFAULT 'Festangestellter',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -50,6 +52,27 @@ db.serialize(() => {
     else if (row.count === 0) {
       console.log('Initializing test data...');
       initializeTestData();
+    }
+  });
+
+  // Migration: Prüfe ob neue Spalten existieren und füge sie hinzu wenn nicht
+  db.all('PRAGMA table_info(employees)', (err, columns) => {
+    if (err) return;
+    const hasHourlyWage = columns.some(col => col.name === 'hourly_wage');
+    const hasEmploymentType = columns.some(col => col.name === 'employment_type');
+
+    if (!hasHourlyWage) {
+      db.run('ALTER TABLE employees ADD COLUMN hourly_wage REAL DEFAULT 12.00', (err) => {
+        if (err) console.error('Fehler beim Hinzufügen von hourly_wage:', err);
+        else console.log('✅ Spalte hourly_wage hinzugefügt');
+      });
+    }
+
+    if (!hasEmploymentType) {
+      db.run('ALTER TABLE employees ADD COLUMN employment_type TEXT DEFAULT \'Festangestellter\'', (err) => {
+        if (err) console.error('Fehler beim Hinzufügen von employment_type:', err);
+        else console.log('✅ Spalte employment_type hinzugefügt');
+      });
     }
   });
 });
@@ -266,7 +289,7 @@ app.post('/api/admin/employee', (req, res) => {
 
 // API: Get all employees (für Admin)
 app.get('/api/admin/employees', (req, res) => {
-  db.all('SELECT id, name FROM employees ORDER BY name', (err, employees) => {
+  db.all('SELECT id, name, hourly_wage, employment_type FROM employees ORDER BY name', (err, employees) => {
     if (err) {
       return res.status(500).json({ error: 'Fehler beim Abrufen' });
     }
@@ -398,12 +421,25 @@ app.get('/api/admin/export/:year/:month', (req, res) => {
   );
 });
 
-// API: Get all employees (for admin)
-app.get('/api/admin/employees', (req, res) => {
-  db.all('SELECT id, name, uuid FROM employees ORDER BY name', (err, employees) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(employees);
-  });
+// API: Update employee
+app.put('/api/admin/employee/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, hourly_wage, employment_type } = req.body;
+
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ error: 'Name ist erforderlich' });
+  }
+
+  db.run(
+    'UPDATE employees SET name = ?, hourly_wage = ?, employment_type = ? WHERE id = ?',
+    [name.trim(), hourly_wage || 12.00, employment_type || 'Festangestellter', id],
+    function(err) {
+      if (err) {
+        return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
+      }
+      res.json({ success: true, message: 'Mitarbeiter aktualisiert!' });
+    }
+  );
 });
 
 // ==================== START SERVER ====================
