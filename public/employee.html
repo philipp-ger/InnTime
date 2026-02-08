@@ -16,60 +16,81 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            align-items: center;
+            align-items: stretch;
             justify-content: center;
-            padding: 20px;
+            padding: 10px;
         }
 
         .container {
             background: white;
             border-radius: 16px;
-            padding: 30px 20px;
+            padding: 20px;
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
             max-width: 500px;
             width: 100%;
+            max-height: 100vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
 
         .header {
             text-align: center;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin: 0;
         }
 
         .logo {
-            font-size: 36px;
+            font-size: 32px;
             font-weight: bold;
             color: #667eea;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
         }
 
         .subtitle {
             color: #666;
-            font-size: 14px;
-            margin-bottom: 20px;
+            font-size: 12px;
+            margin-bottom: 10px;
         }
 
         .employee-selector {
-            margin-bottom: 30px;
+            margin-bottom: 20px;
         }
 
         .employee-selector label {
             display: block;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .employee-selector select {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
-            transition: border-color 0.3s;
+            transition: border-color 0.3s, background-color 0.3s;
             cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+            background-color: white;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23333' stroke-width='2'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 20px;
+            padding-right: 36px;
+        }
+
+        .employee-selector select:active {
+            background-color: #f7fafc;
         }
 
         .employee-selector select:focus {
@@ -79,49 +100,49 @@
         }
 
         .employee-name {
-            font-size: 24px;
+            font-size: 20px;
             font-weight: 600;
             color: #333;
-            margin: 20px 0;
+            margin: 15px 0 10px;
         }
 
         .date-info {
             background: #f5f5f5;
-            padding: 15px;
+            padding: 12px;
             border-radius: 8px;
-            margin: 20px 0;
+            margin: 15px 0;
             text-align: center;
         }
 
         .date-info .date {
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
 
         .date-info .weekday {
-            font-size: 14px;
+            font-size: 13px;
             color: #999;
         }
 
         .time-input-group {
-            margin: 20px 0;
+            margin: 15px 0;
         }
 
         .time-input-group label {
             display: block;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .time-input-group input {
             width: 100%;
-            padding: 12px;
+            padding: 14px;
             border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 16px;
@@ -137,20 +158,29 @@
         .button-group {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 25px 0;
+            gap: 8px;
+            margin: 20px 0;
         }
 
         button {
-            padding: 12px 20px;
+            padding: 16px 16px;
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-start {
+            background: #48bb78;
+            color: white;
         }
 
         .btn-start {
@@ -160,8 +190,12 @@
 
         .btn-start:hover {
             background: #38a169;
-            transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(72, 187, 120, 0.3);
+        }
+
+        .btn-start:active {
+            background: #2f855a;
+            transform: scale(0.98);
         }
 
         .btn-end {
@@ -171,8 +205,12 @@
 
         .btn-end:hover {
             background: #e53e3e;
-            transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(245, 101, 101, 0.3);
+        }
+
+        .btn-end:active {
+            background: #c53030;
+            transform: scale(0.98);
         }
 
         .btn-save {
@@ -183,8 +221,12 @@
 
         .btn-save:hover {
             background: #5a67d8;
-            transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-save:active {
+            background: #4c51bf;
+            transform: scale(0.98);
         }
 
         .btn-save:disabled {
@@ -196,10 +238,23 @@
         .message {
             padding: 12px;
             border-radius: 8px;
-            margin: 15px 0;
+            margin: 12px 0;
             text-align: center;
             font-weight: 600;
+            font-size: 14px;
             display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .message.success {
@@ -219,37 +274,46 @@
         }
 
         .history-section {
-            margin-top: 30px;
-            padding-top: 30px;
+            margin-top: 20px;
+            padding-top: 20px;
             border-top: 2px solid #e2e8f0;
         }
 
         .history-section h3 {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
         }
 
         .history-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 10px;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            padding-right: 5px;
         }
 
         .history-item {
             background: #f7fafc;
-            padding: 12px;
+            padding: 10px;
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s;
             border: 2px solid transparent;
+            text-align: center;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
-        .history-item:hover {
+        .history-item:active {
             border-color: #667eea;
             background: #edf2f7;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: scale(0.98);
         }
 
         .history-item.selected {
@@ -260,19 +324,134 @@
         .history-date {
             font-weight: 600;
             color: #333;
-            font-size: 14px;
+            font-size: 13px;
         }
 
         .history-weekday {
             color: #999;
-            font-size: 12px;
+            font-size: 11px;
         }
 
         .history-hours {
             color: #667eea;
             font-weight: 600;
             font-size: 12px;
-            margin-top: 5px;
+            margin-top: 3px;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 0;
+                align-items: flex-start;
+            }
+
+            .container {
+                border-radius: 0;
+                padding: 16px;
+                max-height: none;
+                min-height: 100vh;
+            }
+
+            .header {
+                margin-bottom: 15px;
+            }
+
+            .logo {
+                font-size: 28px;
+                margin-bottom: 3px;
+            }
+
+            .header h1 {
+                font-size: 18px;
+            }
+
+            .subtitle {
+                font-size: 11px;
+            }
+
+            .employee-name {
+                font-size: 18px;
+                margin: 12px 0 8px;
+            }
+
+            .button-group {
+                grid-template-columns: 1fr 1fr;
+                gap: 6px;
+                margin: 15px 0;
+            }
+
+            button {
+                padding: 14px 12px;
+                font-size: 13px;
+                min-height: 44px;
+            }
+
+            .btn-start, .btn-end {
+                font-size: 12px;
+                padding: 12px 10px;
+            }
+
+            .btn-save {
+                font-size: 13px;
+                padding: 14px 12px;
+            }
+
+            .history-list {
+                grid-template-columns: 1fr;
+                gap: 6px;
+                max-height: 200px;
+            }
+
+            .history-item {
+                padding: 8px;
+                min-height: 50px;
+            }
+
+            .history-date {
+                font-size: 12px;
+            }
+
+            .history-weekday {
+                font-size: 10px;
+            }
+
+            .message {
+                font-size: 13px;
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 360px) {
+            .container {
+                padding: 12px;
+            }
+
+            .logo {
+                font-size: 24px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .time-input-group input {
+                padding: 12px;
+                font-size: 15px;
+            }
+
+            .employee-selector select {
+                padding: 12px;
+            }
+
+            button {
+                padding: 12px 10px;
+                min-height: 42px;
+                font-size: 12px;
+            }
+
+            .history-list {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
