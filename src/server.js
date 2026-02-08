@@ -404,10 +404,11 @@ app.post('/api/admin/employee', (req, res) => {
   const now = new Date();
   const year = now.getFullYear();
   const month = now.getMonth() + 1;
+  const fullName = `${first_name.trim()} ${last_name.trim()}`;
 
   db.run(
-    'INSERT INTO employees (id, first_name, last_name, uuid, hourly_wage, fixed_salary, salary_type, employment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, first_name.trim(), last_name.trim(), uuidv4(), wageValue, salaryValue, salaryTypeValue, employmentTypeValue],
+    'INSERT INTO employees (id, name, first_name, last_name, uuid, hourly_wage, fixed_salary, salary_type, employment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, fullName, first_name.trim(), last_name.trim(), uuidv4(), wageValue, salaryValue, salaryTypeValue, employmentTypeValue],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Fehler beim Hinzufügen: ' + err.message });
@@ -710,9 +711,10 @@ app.put('/api/admin/employee/:id', (req, res) => {
           }
 
           // Schritt 2: Update Mitarbeiter
+          const fullName = `${first_name.trim()} ${last_name.trim()}`;
           db.run(
-            'UPDATE employees SET first_name = ?, last_name = ?, hourly_wage = ?, fixed_salary = ?, salary_type = ?, employment_type = ? WHERE id = ?',
-            [first_name.trim(), last_name.trim(), wageValue, salaryValue, salaryTypeValue, employment_type || 'Festangestellter', id],
+            'UPDATE employees SET name = ?, first_name = ?, last_name = ?, hourly_wage = ?, fixed_salary = ?, salary_type = ?, employment_type = ? WHERE id = ?',
+            [fullName, first_name.trim(), last_name.trim(), wageValue, salaryValue, salaryTypeValue, employment_type || 'Festangestellter', id],
             (err) => {
               if (err) {
                 return res.status(500).json({ error: 'Fehler beim Aktualisieren des Mitarbeiters: ' + err.message });
