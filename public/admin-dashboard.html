@@ -254,6 +254,41 @@
             transform: none;
         }
 
+        .sort-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .sort-controls label {
+            font-weight: 600;
+            color: #333;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        .sort-controls select {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background-color: white;
+            transition: border-color 0.3s;
+        }
+
+        .sort-controls select:hover {
+            border-color: #667eea;
+        }
+
+        .sort-controls select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
         .add-employee-message {
             padding: 12px;
             border-radius: 8px;
@@ -501,6 +536,20 @@
             <div class="month-display" id="monthDisplay">--</div>
             <button onclick="nextMonth()">Nächster Monat ▶</button>
         </div>
+
+        <div class="sort-controls">
+            <label for="sortDropdown">📊 Sortieren nach:</label>
+            <select id="sortDropdown" onchange="setSortOption(this.value)">
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+                <option value="hours-desc">Stunden (absteigend)</option>
+                <option value="hours-asc">Stunden (aufsteigend)</option>
+                <option value="salary-desc">Verdienst (absteigend)</option>
+                <option value="salary-asc">Verdienst (aufsteigend)</option>
+                <option value="hourly-wage-desc">Stundenlohn (absteigend)</option>
+                <option value="hourly-wage-asc">Stundenlohn (aufsteigend)</option>
+            </select>
+        </div>
     </div>
 
     <div class="container">
@@ -552,6 +601,8 @@
 
     <script>
         let currentDate = new Date();
+        let currentSortOption = 'name-asc';
+        let lastReportData = null;
 
         document.addEventListener('DOMContentLoaded', () => {
             if (!localStorage.getItem('adminToken')) {
@@ -593,12 +644,59 @@
             fetch(`/api/admin/report/${year}/${month}`)
                 .then(res => res.json())
                 .then(data => {
+                    lastReportData = data;
                     displayReport(data);
                 })
                 .catch(err => {
                     document.getElementById('tableBody').innerHTML = 
                         `<tr><td colspan="3" class="error">Fehler beim Laden der Daten: ${err.message}</td></tr>`;
                 });
+        }
+
+        function setSortOption(sortOption) {
+            currentSortOption = sortOption;
+            if (lastReportData) {
+                displayReport(lastReportData);
+            }
+        }
+
+        function sortEmployees(employees, sortOption) {
+            const sorted = [...employees];
+
+            switch(sortOption) {
+                case 'name-asc':
+                    sorted.sort((a, b) => 
+                        `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`)
+                    );
+                    break;
+                case 'name-desc':
+                    sorted.sort((a, b) => 
+                        `${b.first_name} ${b.last_name}`.localeCompare(`${a.first_name} ${a.last_name}`)
+                    );
+                    break;
+                case 'hours-desc':
+                    sorted.sort((a, b) => b.totalHours - a.totalHours);
+                    break;
+                case 'hours-asc':
+                    sorted.sort((a, b) => a.totalHours - b.totalHours);
+                    break;
+                case 'salary-desc':
+                    sorted.sort((a, b) => b.totalWage - a.totalWage);
+                    break;
+                case 'salary-asc':
+                    sorted.sort((a, b) => a.totalWage - b.totalWage);
+                    break;
+                case 'hourly-wage-desc':
+                    sorted.sort((a, b) => (b.hourly_wage || 0) - (a.hourly_wage || 0));
+                    break;
+                case 'hourly-wage-asc':
+                    sorted.sort((a, b) => (a.hourly_wage || 0) - (b.hourly_wage || 0));
+                    break;
+                default:
+                    break;
+            }
+
+            return sorted;
         }
 
         function getWeekdayName(dateString) {
@@ -612,7 +710,9 @@
             const tbody = document.getElementById('tableBody');
             let html = '<table style="width:100%;"><tbody>';
 
-            data.employees.forEach((emp, index) => {
+            const sortedEmployees = sortEmployees(data.employees, currentSortOption);
+
+            sortedEmployees.forEach((emp, index) => {
                 const daysArray = Object.entries(emp.days).sort((a, b) => a[0].localeCompare(b[0]));
                 const uniqueId = `employee-${index}`;
                 
