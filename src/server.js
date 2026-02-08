@@ -356,22 +356,42 @@ app.post('/api/admin/login', (req, res) => {
 
 // API: Add new employee
 app.post('/api/admin/employee', (req, res) => {
-  const { first_name, last_name } = req.body;
+  const { first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type } = req.body;
   
   if (!first_name || !last_name || first_name.trim() === '' || last_name.trim() === '') {
     return res.status(400).json({ error: 'Vor- und Nachname sind erforderlich' });
   }
 
+  const salaryTypeValue = salary_type || 'hourly';
+  const wageValue = salaryTypeValue === 'hourly' ? (hourly_wage || 12.00) : 0;
+  const salaryValue = salaryTypeValue === 'fixed' ? (fixed_salary || 0) : 0;
+  const employmentTypeValue = employment_type || 'Festangestellter';
+
   const id = uuidv4();
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
   db.run(
-    'INSERT INTO employees (id, first_name, last_name, uuid) VALUES (?, ?, ?, ?)',
-    [id, first_name.trim(), last_name.trim(), uuidv4()],
+    'INSERT INTO employees (id, first_name, last_name, uuid, hourly_wage, fixed_salary, salary_type, employment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, first_name.trim(), last_name.trim(), uuidv4(), wageValue, salaryValue, salaryTypeValue, employmentTypeValue],
     function(err) {
       if (err) {
         return res.status(500).json({ error: 'Fehler beim Hinzufügen: ' + err.message });
       }
-      const fullName = `${first_name.trim()} ${last_name.trim()}`;
-      res.json({ success: true, id, first_name: first_name.trim(), last_name: last_name.trim(), message: `Mitarbeiter "${fullName}" hinzugefügt!` });
+
+      // Erstelle auch Lohnhistorie für aktuellen Monat
+      db.run(
+        'INSERT INTO employee_salary_history (employee_id, year, month, hourly_wage, fixed_salary, salary_type) VALUES (?, ?, ?, ?, ?, ?)',
+        [id, year, month, wageValue, salaryValue, salaryTypeValue],
+        (err2) => {
+          const fullName = `${first_name.trim()} ${last_name.trim()}`;
+          if (err2) {
+            console.error('Fehler beim Erstellen der Lohnhistorie:', err2);
+          }
+          res.json({ success: true, id, first_name: first_name.trim(), last_name: last_name.trim(), message: `Mitarbeiter "${fullName}" hinzugefügt!` });
+        }
+      );
     }
   );
 });

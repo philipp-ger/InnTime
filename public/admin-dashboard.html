@@ -533,10 +533,39 @@
 
         <div class="add-employee-section">
             <h2>➕ Neuen Mitarbeiter hinzufügen</h2>
-            <div class="add-employee-form">
-                <input type="text" id="newEmployeeFirstName" placeholder="Vorname..." maxlength="100" style="flex: 0.5;">
-                <input type="text" id="newEmployeeLastName" placeholder="Nachname..." maxlength="100" style="flex: 0.5;">
-                <button class="btn-add-employee" onclick="addNewEmployee()">Hinzufügen</button>
+            <div class="add-employee-form" style="flex-wrap: wrap;">
+                <input type="text" id="newEmployeeFirstName" placeholder="Vorname..." maxlength="100" style="flex: 1; min-width: 150px;">
+                <input type="text" id="newEmployeeLastName" placeholder="Nachname..." maxlength="100" style="flex: 1; min-width: 150px;">
+            </div>
+            <div class="add-employee-form" style="flex-wrap: wrap; margin-top: 10px;">
+                <label style="flex: 1; min-width: 150px; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="newSalaryType" value="hourly" checked>
+                    <span>Stundenlohn (€/h)</span>
+                </label>
+                <input type="number" id="newEmployeeHourlyWage" placeholder="14.00" step="0.01" min="0" style="flex: 1; min-width: 120px; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+            </div>
+            <div class="add-employee-form" style="flex-wrap: wrap; margin-top: 10px;">
+                <label style="flex: 1; min-width: 150px; display: flex; align-items: center; gap: 8px;">
+                    <input type="radio" name="newSalaryType" value="fixed">
+                    <span>Festgehalt (€/Monat)</span>
+                </label>
+                <input type="number" id="newEmployeeFixedSalary" placeholder="2500.00" step="0.01" min="0" style="flex: 1; min-width: 120px; padding: 10px; border: 2px solid #ddd; border-radius: 6px; display: none;">
+            </div>
+            <script>
+                document.querySelectorAll('input[name="newSalaryType"]').forEach(radio => {
+                    radio.addEventListener('change', (e) => {
+                        const isHourly = e.target.value === 'hourly';
+                        document.getElementById('newEmployeeHourlyWage').style.display = isHourly ? 'block' : 'none';
+                        document.getElementById('newEmployeeFixedSalary').style.display = isHourly ? 'none' : 'block';
+                    });
+                });
+            </script>
+            <div class="add-employee-form" style="flex-wrap: wrap; margin-top: 10px;">
+                <select id="newEmployeeType" style="flex: 1; min-width: 150px; padding: 10px; border: 2px solid #ddd; border-radius: 6px;">
+                    <option value="Festangestellter">📋 Festangestellter</option>
+                    <option value="Minijob">🎯 Minijob</option>
+                </select>
+                <button class="btn-add-employee" onclick="addNewEmployee()" style="flex: 0.5;">Hinzufügen</button>
             </div>
             <div id="addEmployeeMessage" class="add-employee-message"></div>
         </div>
@@ -808,6 +837,11 @@
                 return;
             }
 
+            const salary_type = document.querySelector('input[name="newSalaryType"]:checked').value;
+            const hourly_wage = parseFloat(document.getElementById('newEmployeeHourlyWage').value) || 12.00;
+            const fixed_salary = parseFloat(document.getElementById('newEmployeeFixedSalary').value) || 0;
+            const employment_type = document.getElementById('newEmployeeType').value;
+
             const btn = event.target;
             btn.disabled = true;
             btn.textContent = 'Wird hinzugefügt...';
@@ -815,7 +849,7 @@
             fetch('/api/admin/employee', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ first_name, last_name })
+                body: JSON.stringify({ first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type })
             })
             .then(res => res.json())
             .then(data => {
@@ -824,6 +858,8 @@
                     msgDiv.className = 'add-employee-message success';
                     firstNameInput.value = '';
                     lastNameInput.value = '';
+                    document.getElementById('newEmployeeHourlyWage').value = '';
+                    document.getElementById('newEmployeeFixedSalary').value = '';
                     loadEmployeeLinks();
                     setTimeout(() => {
                         msgDiv.className = 'add-employee-message';
