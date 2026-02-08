@@ -615,19 +615,28 @@ app.put('/api/admin/employee/:id', (req, res) => {
                         }
                       }
 
+                      // Nutze serialize um sicherzustellen dass alle inserts vor dem update passieren
+                      let inserted = 0;
                       fillMonths.forEach(({ y, m }) => {
                         db.run(
                           `INSERT OR IGNORE INTO employee_salary_history (employee_id, year, month, hourly_wage, fixed_salary, salary_type)
                            VALUES (?, ?, ?, ?, ?, ?)`,
                           [id, y, m, oldEmployee.hourly_wage, oldEmployee.fixed_salary, oldEmployee.salary_type],
                           (err) => {
+                            inserted++;
                             if (err) console.error('Fehler beim Füllen der alten Monate:', err);
+                            if (inserted === fillMonths.length) {
+                              // Alle inserts fertig, jetzt update
+                              updateEmployeeAndHistory();
+                            }
                           }
                         );
                       });
 
-                      // Nach dem Füllen, weiter mit dem Update
-                      updateEmployeeAndHistory();
+                      // Falls keine Monate zum Füllen: sofort update
+                      if (fillMonths.length === 0) {
+                        updateEmployeeAndHistory();
+                      }
                     }
                   } else {
                     updateEmployeeAndHistory();
