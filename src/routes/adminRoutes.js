@@ -103,6 +103,10 @@ router.put('/employee/:id', (req, res) => {
     const employmentTypeValue = employment_type || 'Festangestellter';
     const fullName = `${first_name.trim()} ${last_name.trim()}`;
 
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+
     db.run(
         'UPDATE employees SET name = ?, first_name = ?, last_name = ?, hourly_wage = ?, fixed_salary = ?, salary_type = ?, employment_type = ? WHERE id = ?',
         [fullName, first_name.trim(), last_name.trim(), wageValue, salaryValue, salaryTypeValue, employmentTypeValue, id],
@@ -110,7 +114,18 @@ router.put('/employee/:id', (req, res) => {
             if (err) {
                 return res.status(500).json({ error: 'Fehler beim Aktualisieren: ' + err.message });
             }
-            res.json({ success: true, message: 'Mitarbeiter aktualisiert!' });
+
+            // Auch Lohnhistorie für aktuellen Monat aktualisieren, falls vorhanden
+            db.run(
+                'UPDATE employee_salary_history SET hourly_wage = ?, fixed_salary = ?, salary_type = ? WHERE employee_id = ? AND year = ? AND month = ?',
+                [wageValue, salaryValue, salaryTypeValue, id, year, month],
+                (err2) => {
+                    if (err2) {
+                        console.error('Fehler beim Aktualisieren der Lohnhistorie:', err2);
+                    }
+                    res.json({ success: true, message: 'Mitarbeiter aktualisiert!' });
+                }
+            );
         }
     );
 });
