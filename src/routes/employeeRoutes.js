@@ -23,7 +23,7 @@ router.get('/employee/:id', (req, res) => {
     });
 });
 
-// API: Get entry for specific date (Query parameters)
+// API: Get entries for specific date (Query parameters)
 router.get('/timesheet', (req, res) => {
     const { employee_id, date } = req.query;
 
@@ -31,12 +31,12 @@ router.get('/timesheet', (req, res) => {
         return res.status(400).json({ error: 'employee_id und date sind erforderlich' });
     }
 
-    db.get(
+    db.all(
         'SELECT * FROM timesheets WHERE employee_id = ? AND date = ?',
         [employee_id, date],
-        (err, row) => {
+        (err, rows) => {
             if (err) return res.status(500).json({ error: err.message });
-            res.json(row || {});
+            res.json(rows || []);
         }
     );
 });
@@ -49,38 +49,24 @@ router.post('/timesheets', (req, res) => {
         return res.status(400).json({ error: 'Mitarbeiter, Datum, Start- und Endzeit sind erforderlich' });
     }
 
-    // Überprüfe ob bereits ein Eintrag für dieses Datum existiert
-    db.get(
-        'SELECT id FROM timesheets WHERE employee_id = ? AND date = ?',
-        [employee_id, date],
-        (err, row) => {
-            if (err) {
-                return res.status(500).json({ error: 'Datenbankfehler: ' + err.message });
-            }
-
-            if (row) {
-                // Update existing entry
-                db.run(
-                    'UPDATE timesheets SET start_time = ?, end_time = ? WHERE id = ?',
-                    [start_time, end_time, row.id],
-                    function (err) {
-                        if (err) return res.status(500).json({ error: err.message });
-                        res.json({ success: true, message: 'Zeiterfassung aktualisiert!' });
-                    }
-                );
-            } else {
-                // Insert new entry
-                db.run(
-                    'INSERT INTO timesheets (employee_id, date, start_time, end_time) VALUES (?, ?, ?, ?)',
-                    [employee_id, date, start_time, end_time],
-                    function (err) {
-                        if (err) return res.status(500).json({ error: err.message });
-                        res.json({ success: true, message: 'Zeiterfassung gespeichert!' });
-                    }
-                );
-            }
+    // Insert new entry (support for multiple intervals per day)
+    db.run(
+        'INSERT INTO timesheets (employee_id, date, start_time, end_time) VALUES (?, ?, ?, ?)',
+        [employee_id, date, start_time, end_time],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: 'Zeiterfassung gespeichert!', id: this.lastID });
         }
     );
+});
+
+// API: Delete timesheet entry
+router.delete('/timesheets/:id', (req, res) => {
+    const { id } = req.params;
+    db.run('DELETE FROM timesheets WHERE id = ?', [id], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true, message: 'Eintrag gelöscht' });
+    });
 });
 
 module.exports = router;

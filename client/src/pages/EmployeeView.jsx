@@ -10,7 +10,8 @@ const EmployeeView = () => {
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [activeTab, setActiveTab] = useState('today');
     const [workDate, setWorkDate] = useState(new Date().toISOString().split('T')[0]);
-    const [timeEntry, setTimeEntry] = useState({ start_time: '', end_time: '' });
+    const [timeEntries, setTimeEntries] = useState([]);
+    const [currentTime, setCurrentTime] = useState({ start_time: '', end_time: '' });
     const [message, setMessage] = useState(null);
     const [history, setHistory] = useState([]);
     const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -20,26 +21,27 @@ const EmployeeView = () => {
         fetch('/api/employees')
             .then(res => res.json())
             .then(data => {
-                setEmployees(data);
+                setEmployees(data || []);
             });
     }, []);
 
-    // Load entry when employee or date changes
-    useEffect(() => {
+    // Load entries when employee or date changes
+    const loadEntries = () => {
         if (!selectedEmployee || !workDate) return;
 
         fetch(`/api/timesheet?employee_id=${selectedEmployee.id}&date=${workDate}`)
             .then(res => res.json())
             .then(data => {
-                setTimeEntry({
-                    start_time: data.start_time || '',
-                    end_time: data.end_time || ''
-                });
+                setTimeEntries(Array.isArray(data) ? data : []);
             });
+    };
+
+    useEffect(() => {
+        loadEntries();
     }, [selectedEmployee, workDate]);
 
     // Load history
-    useEffect(() => {
+    const loadHistory = () => {
         if (!selectedEmployee) return;
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
@@ -57,11 +59,15 @@ const EmployeeView = () => {
                     setHistory([]);
                 }
             });
+    };
+
+    useEffect(() => {
+        loadHistory();
     }, [selectedEmployee, currentMonth]);
 
     const handleSave = async () => {
         if (!selectedEmployee) return showMessage('Bitte Mitarbeiter wählen', 'error');
-        if (!timeEntry.start_time && !timeEntry.end_time) return showMessage('Bitte Zeiten eingeben', 'error');
+        if (!currentTime.start_time || !currentTime.end_time) return showMessage('Bitte Start- und Endzeit eingeben', 'error');
 
         try {
             const res = await fetch('/api/timesheets', {
@@ -70,32 +76,34 @@ const EmployeeView = () => {
                 body: JSON.stringify({
                     employee_id: selectedEmployee.id,
                     date: workDate,
-                    start_time: timeEntry.start_time,
-                    end_time: timeEntry.end_time
+                    start_time: currentTime.start_time,
+                    end_time: currentTime.end_time
                 })
             });
             const data = await res.json();
             if (data.success) {
                 showMessage('✅ Gespeichert!', 'success');
-                // Trigger reload of history/entry by "refreshing" dependency or simple re-fetch
-                // For simplicity, we just let the effect re-run if we changed something tracking it, 
-                // but here we might want to manually re-fetch history.
-                // Re-fetching history:
-                const year = currentMonth.getFullYear();
-                const month = currentMonth.getMonth() + 1;
-                fetch(`/api/admin/report/${year}/${month}`)
-                    .then(r => r.json())
-                    .then(d => {
-                        const empData = d.employees.find(e => e.id === selectedEmployee.id);
-                        if (empData) {
-                            setHistory(Object.entries(empData.days).map(([date, info]) => ({
-                                date,
-                                ...info
-                            })).sort((a, b) => b.date.localeCompare(a.date)));
-                        }
-                    });
+                setCurrentTime({ start_time: '', end_time: '' }); // Reset for next interval
+                loadEntries();
+                loadHistory();
             } else {
                 showMessage('Fehler: ' + data.error, 'error');
+            }
+        } catch (err) {
+            showMessage('Netzwerkfehler', 'error');
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm('Diesen Eintrag wirklich löschen?')) return;
+
+        try {
+            const res = await fetch(`/api/timesheets/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success) {
+                showMessage('🗑️ Gelöscht', 'success');
+                loadEntries();
+                loadHistory();
             }
         } catch (err) {
             showMessage('Netzwerkfehler', 'error');
@@ -110,7 +118,7 @@ const EmployeeView = () => {
     const setNow = (field) => {
         const now = new Date();
         const time = format(now, 'HH:mm');
-        setTimeEntry(prev => ({ ...prev, [field]: time }));
+        setCurrentTime(prev => ({ ...prev, [field]: time }));
     };
 
     return (
@@ -241,8 +249,8 @@ const EmployeeView = () => {
                                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#718096', marginBottom: '8px' }}>START</label>
                                             <input
                                                 type="time"
-                                                value={timeEntry.start_time}
-                                                onChange={(e) => setTimeEntry({ ...timeEntry, start_time: e.target.value })}
+                                                value={currentTime.start_time}
+                                                onChange={(e) => setCurrentTime({ ...currentTime, start_time: e.target.value })}
                                                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '18px', textAlign: 'center' }}
                                             />
                                             <Button variant="success" onClick={() => setNow('start_time')} style={{ width: '100%', marginTop: '8px', fontSize: '12px', padding: '8px' }}>
@@ -253,8 +261,8 @@ const EmployeeView = () => {
                                             <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#718096', marginBottom: '8px' }}>ENDE</label>
                                             <input
                                                 type="time"
-                                                value={timeEntry.end_time}
-                                                onChange={(e) => setTimeEntry({ ...timeEntry, end_time: e.target.value })}
+                                                value={currentTime.end_time}
+                                                onChange={(e) => setCurrentTime({ ...currentTime, end_time: e.target.value })}
                                                 style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '18px', textAlign: 'center' }}
                                             />
                                             <Button variant="danger" onClick={() => setNow('end_time')} style={{ width: '100%', marginTop: '8px', fontSize: '12px', padding: '8px' }}>
@@ -263,9 +271,33 @@ const EmployeeView = () => {
                                         </div>
                                     </div>
 
-                                    <Button onClick={handleSave} style={{ width: '100%', padding: '16px', fontSize: '16px' }}>
-                                        Speichern
+                                    <Button onClick={handleSave} style={{ width: '100%', padding: '16px', fontSize: '16px', marginBottom: '30px' }}>
+                                        ➕ Intervall hinzufügen
                                     </Button>
+
+                                    {timeEntries.length > 0 && (
+                                        <div style={{ borderTop: '2px dashed #edf2f7', paddingTop: '20px' }}>
+                                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', color: '#718096', marginBottom: '12px', textTransform: 'uppercase' }}>
+                                                Gespeicherte Intervalle für heute
+                                            </label>
+                                            <div style={{ display: 'grid', gap: '10px' }}>
+                                                {timeEntries.map((entry) => (
+                                                    <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f7fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                                        <div style={{ fontWeight: 'bold', color: '#2d3748', fontSize: '18px' }}>
+                                                            {entry.start_time} - {entry.end_time}
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleDelete(entry.id)}
+                                                            style={{ background: '#fff5f5', color: '#f56565', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                                            title="Löschen"
+                                                        >
+                                                            🗑️
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </Card>
                             </motion.div>
                         ) : (

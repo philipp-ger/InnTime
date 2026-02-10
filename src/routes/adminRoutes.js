@@ -156,7 +156,7 @@ function calculateReport(rows, year, month) {
                 employment_type: row.employment_type || 'Festangestellter',
                 hourly_wage: row.hourly_wage || 0,
                 fixed_salary: row.fixed_salary || 0,
-                days: {}, // Will store date -> array of entries
+                days: {}, // Will store date -> information
                 totalHours: 0,
                 totalWage: 0
             };
@@ -169,14 +169,16 @@ function calculateReport(rows, year, month) {
             if (!report[row.id].days[row.date]) {
                 report[row.id].days[row.date] = {
                     hours: 0,
-                    start_time: row.start_time,
-                    end_time: row.end_time
+                    entries: [] // Store all intervals
                 };
             }
 
             report[row.id].days[row.date].hours += hours;
-            // Update end_time to the latest one seen for this day
-            report[row.id].days[row.date].end_time = row.end_time;
+            report[row.id].days[row.date].entries.push({
+                start_time: row.start_time,
+                end_time: row.end_time,
+                hours: hours
+            });
 
             report[row.id].totalHours += hours;
         }
