@@ -160,19 +160,19 @@ const AdminDashboard = () => {
                     .map(([date, day]) => [
                         format(new Date(date), 'dd.MM.yyyy'),
                         format(new Date(date), 'EEEE', { locale: de }),
-                        day.start_time,
-                        day.end_time,
+                        (day.entries || []).map(e => `${e.start_time} - ${e.end_time}`).join('\n'),
                         (day.hours || 0).toFixed(2) + ' h'
                     ]);
 
                 autoTable(doc, {
                     startY: 54,
-                    head: [['Datum', 'Wochentag', 'Beginn', 'Ende', 'Stunden']],
+                    head: [['Datum', 'Wochentag', 'Zeiträume', 'Stunden']],
                     body: employeeDetails,
                     headStyles: { fillColor: [102, 126, 234] },
                     alternateRowStyles: { fillColor: [248, 250, 252] },
+                    styles: { cellPadding: 3, fontSize: 10, valign: 'middle' },
                     margin: { left: 14, right: 14 },
-                    foot: [['Gesamt', '', '', '', `${(emp.totalHours || 0).toFixed(2)} h`]],
+                    foot: [['Gesamt', '', '', `${(emp.totalHours || 0).toFixed(2)} h`]],
                     footStyles: { fillColor: [237, 242, 247], textColor: [45, 55, 72], fontStyle: 'bold' }
                 });
             });
@@ -514,13 +514,17 @@ const AdminDashboard = () => {
                                             <tbody>
                                                 {Object.entries(emp.days).sort().map(([date, day]) => (
                                                     <tr key={date} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                                                        <td style={{ padding: '12px 8px', fontWeight: '500' }}>
+                                                        <td style={{ padding: '12px 8px', fontWeight: '500', verticalAlign: 'top' }}>
                                                             {format(new Date(date), 'dd.MM.')} <span style={{ color: '#a0aec0', fontWeight: 'normal' }}>{format(new Date(date), 'EEEE', { locale: de })}</span>
                                                         </td>
                                                         <td style={{ padding: '12px 8px', color: '#718096' }}>
-                                                            {day.start_time} - {day.end_time}
+                                                            {(day.entries || []).map((e, i) => (
+                                                                <div key={i} style={{ marginBottom: i < day.entries.length - 1 ? '4px' : 0 }}>
+                                                                    {e.start_time} - {e.end_time}
+                                                                </div>
+                                                            ))}
                                                         </td>
-                                                        <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: '#667eea' }}>
+                                                        <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 'bold', color: '#667eea', verticalAlign: 'top' }}>
                                                             {(day.hours || 0).toFixed(2)}
                                                         </td>
                                                     </tr>
