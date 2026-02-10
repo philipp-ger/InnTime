@@ -134,6 +134,49 @@ const AdminDashboard = () => {
                 });
             }
 
+            // Individual Employee Details
+            report.employees.forEach(emp => {
+                doc.addPage();
+
+                // Header for individual employee
+                doc.setFontSize(22);
+                doc.setTextColor(102, 126, 234);
+                doc.text(emp.name, 14, 22);
+
+                doc.setFontSize(12);
+                doc.setTextColor(113, 128, 150);
+                doc.text(`Anstellungsart: ${emp.employment_type}`, 14, 30);
+                doc.text(`Gehaltstyp: ${emp.salary_type === 'hourly' ? 'Stundenlohn' : 'Festgehalt'}`, 14, 36);
+                if (emp.salary_type === 'hourly') {
+                    doc.text(`Stundenlohn: ${(emp.hourly_wage || 0).toFixed(2)} €`, 14, 42);
+                } else {
+                    doc.text(`Festgehalt: ${(emp.fixed_salary || 0).toFixed(2)} €`, 14, 42);
+                }
+
+                doc.line(14, 48, 196, 48);
+
+                const employeeDetails = Object.entries(emp.days || {})
+                    .sort()
+                    .map(([date, day]) => [
+                        format(new Date(date), 'dd.MM.yyyy'),
+                        format(new Date(date), 'EEEE', { locale: de }),
+                        day.start_time,
+                        day.end_time,
+                        (day.hours || 0).toFixed(2) + ' h'
+                    ]);
+
+                autoTable(doc, {
+                    startY: 54,
+                    head: [['Datum', 'Wochentag', 'Beginn', 'Ende', 'Stunden']],
+                    body: employeeDetails,
+                    headStyles: { fillColor: [102, 126, 234] },
+                    alternateRowStyles: { fillColor: [248, 250, 252] },
+                    margin: { left: 14, right: 14 },
+                    foot: [['Gesamt', '', '', '', `${(emp.totalHours || 0).toFixed(2)} h`]],
+                    footStyles: { fillColor: [237, 242, 247], textColor: [45, 55, 72], fontStyle: 'bold' }
+                });
+            });
+
             doc.save(`InnTime_Report_${format(currentDate, 'yyyy-MM')}.pdf`);
         } catch (err) {
             console.error('PDF Export Error:', err);
