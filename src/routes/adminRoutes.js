@@ -409,13 +409,4 @@ router.get('/export-employees', requireAdmin, (req, res) => {
     });
 });
 
-// TEMP: Passwort-Reset (nach erstem Login entfernen)
-router.get('/reset-pw', (req, res) => {
-    db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [hashPassword('fitinn2024')], () => {
-        db.run("UPDATE settings SET value = ? WHERE key = 'employee_password'", [hashPassword('mitarbeiter2024')], () => {
-            res.json({ ok: true, message: 'Passwoerter auf fitinn2024 / mitarbeiter2024 zurueckgesetzt' });
-        });
-    });
-});
-
 module.exports = router;
