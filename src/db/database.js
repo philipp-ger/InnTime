@@ -1,10 +1,12 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
 const { hashPassword, setJwtSecret } = require('../auth');
 
 const dbPath = path.join(__dirname, '../../data/timetracking.db');
+fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) console.error('Database error:', err);
@@ -219,8 +221,4 @@ function initializeTestData() {
   });
 }
 
-// Start initialization
-initializeDatabase();
-initializeTestData();
-
-module.exports = db;
+// Start i
