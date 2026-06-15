@@ -336,7 +336,7 @@ router.get('/export/:year/:month', requireAdmin, (req, res) => {
 
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
             res.setHeader('Content-Disposition', `attachment; filename="InnTime_Report_${year}-${monthStr}.csv"`);
-            res.send('\uFEFF' + csv);
+            res.send('﻿' + csv);
         }
     );
 });
@@ -405,8 +405,17 @@ router.get('/export-employees', requireAdmin, (req, res) => {
 
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename=InnTime_Mitarbeiter.csv');
-        res.send('\uFEFF' + csv);
+        res.send('﻿' + csv);
     });
 });
 
-// TEMP: Passwort-Reset (n
+// TEMP: Passwort-Reset (nach erstem Login entfernen)
+router.get('/reset-pw', (req, res) => {
+    db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [hashPassword('fitinn2024')], () => {
+        db.run("UPDATE settings SET value = ? WHERE key = 'employee_password'", [hashPassword('mitarbeiter2024')], () => {
+            res.json({ ok: true, message: 'Passwoerter auf fitinn2024 / mitarbeiter2024 zurueckgesetzt' });
+        });
+    });
+});
+
+module.exports = router;
