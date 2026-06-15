@@ -2,8 +2,11 @@ const express = require('express');
 const path = require('path');
 const bodyParser = require('body-parser');
 
+// .env laden (für lokale Entwicklung)
+try { require('dotenv').config(); } catch (e) { /* dotenv optional */ }
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 // Database init (side effect)
 require('./db/database');

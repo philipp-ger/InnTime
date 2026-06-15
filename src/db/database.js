@@ -1,6 +1,8 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
+const { hashPassword, setJwtSecret } = require('../auth');
 
 const dbPath = path.join(__dirname, '../../data/timetracking.db');
 
@@ -101,9 +103,39 @@ function initializeDatabase() {
 }
 
 function initializeSettings() {
+  // Admin-Passwort (Standard: fitinn2024, wird direkt gehasht gespeichert)
   db.get("SELECT value FROM settings WHERE key = 'admin_password'", (err, row) => {
     if (!err && !row) {
-      db.run("INSERT INTO settings (key, value) VALUES ('admin_password', 'fitinn2024')");
+      db.run("INSERT INTO settings (key, value) VALUES ('admin_password', ?)", [hashPassword('fitinn2024')]);
+    } else if (!err && row && !row.value.includes(':')) {
+      // Legacy: Klartext → jetzt hashen
+      db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [hashPassword(row.value)]);
+      console.log('Admin-Passwort automatisch gehasht.');
+    }
+  });
+
+  // Mitarbeiter-Passwort (Standard: mitarbeiter2024, wird direkt gehasht gespeichert)
+  db.get("SELECT value FROM settings WHERE key = 'employee_password'", (err, row) => {
+    if (!err && !row) {
+      db.run("INSERT INTO settings (key, value) VALUES ('employee_password', ?)", [hashPassword('mitarbeiter2024')]);
+      console.log('Mitarbeiter-Passwort initialisiert (Standard: mitarbeiter2024).');
+    } else if (!err && row && !row.value.includes(':')) {
+      // Legacy: Klartext → jetzt hashen
+      db.run("UPDATE settings SET value = ? WHERE key = 'employee_password'", [hashPassword(row.value)]);
+      console.log('Mitarbeiter-Passwort automatisch gehasht.');
+    }
+  });
+
+  // JWT-Secret: einmalig generieren und dauerhaft speichern
+  db.get("SELECT value FROM settings WHERE key = 'jwt_secret'", (err, row) => {
+    if (!err && !row) {
+      const secret = crypto.randomBytes(64).toString('hex');
+      db.run("INSERT INTO settings (key, value) VALUES ('jwt_secret', ?)", [secret], () => {
+        setJwtSecret(secret);
+        console.log('JWT-Secret generiert.');
+      });
+    } else if (!err && row) {
+      setJwtSecret(row.value);
     }
   });
 }

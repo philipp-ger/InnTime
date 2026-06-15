@@ -4,15 +4,19 @@ import Card from '../components/Card';
 import Input from '../components/Input';
 import Button from '../components/Button';
 
-const AdminLogin = () => {
+const EmployeeLogin = () => {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
         e.preventDefault();
+        setLoading(true);
+        setError('');
+
         try {
-            const res = await fetch('/api/admin/login', {
+            const res = await fetch('/api/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ password })
@@ -20,13 +24,15 @@ const AdminLogin = () => {
             const data = await res.json();
 
             if (data.success && data.token) {
-                localStorage.setItem('admin_token', data.token);
-                navigate('/admin/dashboard');
+                localStorage.setItem('employee_token', data.token);
+                navigate('/time/dashboard');
             } else {
                 setError('Falsches Passwort');
             }
         } catch (err) {
             setError('Verbindungsfehler');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -41,9 +47,9 @@ const AdminLogin = () => {
         }}>
             <Card style={{ width: '100%', maxWidth: '400px' }}>
                 <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔐</div>
-                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#2d3748' }}>InnTime Admin</h1>
-                    <p style={{ color: '#718096' }}>Fit-Inn Heldenbergen</p>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>⏱️</div>
+                    <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: '#2d3748' }}>InnTime</h1>
+                    <p style={{ color: '#718096' }}>Fit-Inn Heldenbergen – Mitarbeiterbereich</p>
                 </div>
 
                 <form onSubmit={handleLogin}>
@@ -70,8 +76,8 @@ const AdminLogin = () => {
                         </div>
                     )}
 
-                    <Button type="submit" style={{ width: '100%' }}>
-                        Anmelden
+                    <Button type="submit" style={{ width: '100%' }} disabled={loading}>
+                        {loading ? 'Anmelden...' : 'Anmelden'}
                     </Button>
                 </form>
             </Card>
@@ -79,4 +85,4 @@ const AdminLogin = () => {
     );
 };
 
-export default AdminLogin;
+export default EmployeeLogin;

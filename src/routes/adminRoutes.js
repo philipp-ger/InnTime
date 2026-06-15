@@ -2,30 +2,42 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const { v4: uuidv4 } = require('uuid');
+const { verifyPassword, hashPassword } = require('../auth');
+const { requireAdmin } = require('../middleware/authMiddleware');
+const { signJwt } = require('../auth');
 
-// API: Admin Login
+// API: Admin Login (öffentlich)
 router.post('/login', (req, res) => {
     const { password } = req.body;
     db.get("SELECT value FROM settings WHERE key = 'admin_password'", (err, row) => {
         if (err) return res.status(500).json({ error: 'Datenbankfehler' });
 
-        if (row && password === row.value) {
-            res.json({ success: true, token: 'admin-token' });
+        if (row && verifyPassword(password, row.value)) {
+            // Legacy: Klartext-Passwort beim nächsten Login automatisch hashen
+            if (!row.value.includes(':')) {
+                db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [hashPassword(password)]);
+            }
+            const token = signJwt({ role: 'admin' });
+            res.json({ success: true, token });
         } else {
             res.status(401).json({ error: 'Falsches Passwort' });
         }
     });
 });
 
-// API: Change Admin Password
-router.post('/change-password', (req, res) => {
+// API: Change Admin Password (geschützt)
+router.post('/change-password', requireAdmin, (req, res) => {
     const { oldPassword, newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Neues Passwort muss mindestens 6 Zeichen haben' });
+    }
 
     db.get("SELECT value FROM settings WHERE key = 'admin_password'", (err, row) => {
         if (err) return res.status(500).json({ error: 'Datenbankfehler' });
 
-        if (row && oldPassword === row.value) {
-            db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [newPassword], (err2) => {
+        if (row && verifyPassword(oldPassword, row.value)) {
+            db.run("UPDATE settings SET value = ? WHERE key = 'admin_password'", [hashPassword(newPassword)], (err2) => {
                 if (err2) return res.status(500).json({ error: 'Fehler beim Speichern' });
                 res.json({ success: true, message: 'Passwort erfolgreich geändert' });
             });
@@ -35,8 +47,22 @@ router.post('/change-password', (req, res) => {
     });
 });
 
+// API: Change Employee Password (geschützt)
+router.post('/change-employee-password', requireAdmin, (req, res) => {
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Passwort muss mindestens 6 Zeichen haben' });
+    }
+
+    db.run("UPDATE settings SET value = ? WHERE key = 'employee_password'", [hashPassword(newPassword)], (err) => {
+        if (err) return res.status(500).json({ error: 'Fehler beim Speichern' });
+        res.json({ success: true, message: 'Mitarbeiter-Passwort erfolgreich geändert' });
+    });
+});
+
 // API: Get all employees (Admin view)
-router.get('/employees', (req, res) => {
+router.get('/employees', requireAdmin, (req, res) => {
     db.all('SELECT id, first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type FROM employees ORDER BY first_name, last_name', (err, employees) => {
         if (err) {
             return res.status(500).json({ error: 'Fehler beim Abrufen' });
@@ -46,7 +72,7 @@ router.get('/employees', (req, res) => {
 });
 
 // API: Add new employee
-router.post('/employee', (req, res) => {
+router.post('/employee', requireAdmin, (req, res) => {
     const { first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type } = req.body;
 
     if (!first_name || !last_name || first_name.trim() === '' || last_name.trim() === '') {
@@ -89,7 +115,7 @@ router.post('/employee', (req, res) => {
 });
 
 // API: Update employee
-router.put('/employee/:id', (req, res) => {
+router.put('/employee/:id', requireAdmin, (req, res) => {
     const { id } = req.params;
     const { first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type } = req.body;
 
@@ -131,7 +157,7 @@ router.put('/employee/:id', (req, res) => {
 });
 
 // API: Delete employee
-router.delete('/employee/:id', (req, res) => {
+router.delete('/employee/:id', requireAdmin, (req, res) => {
     const { id } = req.params;
 
     db.run('DELETE FROM employees WHERE id = ?', [id], function (err) {
@@ -214,7 +240,7 @@ function calculateReport(rows, year, month) {
 }
 
 // API: Get monthly report
-router.get('/report/:year/:month', (req, res) => {
+router.get('/report/:year/:month', requireAdmin, (req, res) => {
     const { year, month } = req.params;
     const monthStr = String(month).padStart(2, '0');
     const datePattern = `${year}-${monthStr}%`;
@@ -263,7 +289,7 @@ router.get('/report/:year/:month', (req, res) => {
 });
 
 // API: Export monthly report as CSV
-router.get('/export/:year/:month', (req, res) => {
+router.get('/export/:year/:month', requireAdmin, (req, res) => {
     const { year, month } = req.params;
     const monthStr = String(month).padStart(2, '0');
     const datePattern = `${year}-${monthStr}%`;
@@ -316,7 +342,7 @@ router.get('/export/:year/:month', (req, res) => {
 });
 
 // API: Import salary data from CSV
-router.post('/import-salary', (req, res) => {
+router.post('/import-salary', requireAdmin, (req, res) => {
     const { csvData } = req.body;
     if (!csvData) return res.status(400).json({ error: 'CSV-Daten erforderlich' });
 
@@ -368,7 +394,7 @@ router.post('/import-salary', (req, res) => {
 });
 
 // API: Export employees
-router.get('/export-employees', (req, res) => {
+router.get('/export-employees', requireAdmin, (req, res) => {
     db.all('SELECT id, first_name, last_name, hourly_wage, fixed_salary, salary_type, employment_type FROM employees ORDER BY first_name', (err, rows) => {
         if (err) return res.status(500).json({ error: 'Fehler beim Export' });
 

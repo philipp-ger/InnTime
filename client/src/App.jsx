@@ -1,10 +1,38 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import EmployeeLogin from './pages/EmployeeLogin'
 import EmployeeView from './pages/EmployeeView'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminLogin from './pages/AdminLogin'
 
-// Placeholder for now
+// ── Auth-Hilfsfunktionen ──────────────────────────────────────────────────────
+
+function isTokenValid(token) {
+    if (!token) return false;
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return false;
+        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+        return payload.exp && payload.exp > Math.floor(Date.now() / 1000);
+    } catch {
+        return false;
+    }
+}
+
+// ── Geschützte Routen ─────────────────────────────────────────────────────────
+
+const ProtectedAdmin = ({ children }) => {
+    const token = localStorage.getItem('admin_token');
+    return isTokenValid(token) ? children : <Navigate to="/admin" replace />;
+};
+
+const ProtectedEmployee = ({ children }) => {
+    const token = localStorage.getItem('employee_token');
+    return isTokenValid(token) ? children : <Navigate to="/time" replace />;
+};
+
+// ── Startseite ────────────────────────────────────────────────────────────────
+
 const Home = () => (
     <div style={{ padding: '20px', textAlign: 'center', fontFamily: 'sans-serif' }}>
         <h1>InnTime</h1>
@@ -24,10 +52,20 @@ function App() {
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Home />} />
-                <Route path="/time" element={<EmployeeView />} />
-                <Route path="/time/:uuid" element={<EmployeeView />} />
+
+                {/* Mitarbeiterbereich */}
+                <Route path="/time" element={<EmployeeLogin />} />
+                <Route path="/time/dashboard" element={
+                    <ProtectedEmployee><EmployeeView /></ProtectedEmployee>
+                } />
+                {/* Legacy UUID-Links leiten auf Login um */}
+                <Route path="/time/:uuid" element={<Navigate to="/time" replace />} />
+
+                {/* Adminbereich */}
                 <Route path="/admin" element={<AdminLogin />} />
-                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/dashboard" element={
+                    <ProtectedAdmin><AdminDashboard /></ProtectedAdmin>
+                } />
             </Routes>
         </BrowserRouter>
     )

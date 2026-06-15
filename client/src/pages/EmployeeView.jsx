@@ -1,11 +1,25 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { format, parseISO, isSameMonth, subMonths, addMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
 
+// Auth-Helper: fetch mit Mitarbeiter-Token
+function employeeFetch(url, options = {}) {
+    const token = localStorage.getItem('employee_token');
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...(options.headers || {}),
+            'Authorization': `Bearer ${token}`
+        }
+    });
+}
+
 const EmployeeView = () => {
+    const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [activeTab, setActiveTab] = useState('today');
@@ -46,19 +60,24 @@ const EmployeeView = () => {
         const year = currentMonth.getFullYear();
         const month = currentMonth.getMonth() + 1;
 
-        fetch(`/api/admin/report/${year}/${month}`)
-            .then(res => res.json())
-            .then(data => {
-                const empData = data.employees.find(e => e.id === selectedEmployee.id);
-                if (empData) {
-                    setHistory(Object.entries(empData.days).map(([date, info]) => ({
-                        date,
-                        ...info
-                    })).sort((a, b) => b.date.localeCompare(a.date)));
-                } else {
-                    setHistory([]);
+        employeeFetch(`/api/employee/${selectedEmployee.id}/history/${year}/${month}`)
+            .then(res => {
+                if (res.status === 401) {
+                    localStorage.removeItem('employee_token');
+                    navigate('/time');
+                    return null;
                 }
-            });
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                const entries = Object.entries(data.days).map(([date, info]) => ({
+                    date,
+                    ...info
+                })).sort((a, b) => b.date.localeCompare(a.date));
+                setHistory(entries);
+            })
+            .catch(() => setHistory([]));
     };
 
     useEffect(() => {
@@ -70,7 +89,7 @@ const EmployeeView = () => {
         if (!currentTime.start_time || !currentTime.end_time) return showMessage('Bitte Start- und Endzeit eingeben', 'error');
 
         try {
-            const res = await fetch('/api/timesheets', {
+            const res = await employeeFetch('/api/timesheets', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -80,6 +99,11 @@ const EmployeeView = () => {
                     end_time: currentTime.end_time
                 })
             });
+            if (res.status === 401) {
+                localStorage.removeItem('employee_token');
+                navigate('/time');
+                return;
+            }
             const data = await res.json();
             if (data.success) {
                 showMessage('✅ Gespeichert!', 'success');
@@ -98,7 +122,12 @@ const EmployeeView = () => {
         if (!confirm('Diesen Eintrag wirklich löschen?')) return;
 
         try {
-            const res = await fetch(`/api/timesheets/${id}`, { method: 'DELETE' });
+            const res = await employeeFetch(`/api/timesheets/${id}`, { method: 'DELETE' });
+            if (res.status === 401) {
+                localStorage.removeItem('employee_token');
+                navigate('/time');
+                return;
+            }
             const data = await res.json();
             if (data.success) {
                 showMessage('🗑️ Gelöscht', 'success');
@@ -131,8 +160,20 @@ const EmployeeView = () => {
                 textAlign: 'center',
                 borderBottomLeftRadius: '20px',
                 borderBottomRightRadius: '20px',
-                boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+                boxShadow: '0 4px 15px rgba(0,0,0,0.1)',
+                position: 'relative'
             }}>
+                <button
+                    onClick={() => { localStorage.removeItem('employee_token'); navigate('/time'); }}
+                    style={{
+                        position: 'absolute', top: '12px', right: '16px',
+                        background: 'rgba(255,255,255,0.2)', border: 'none',
+                        color: 'white', borderRadius: '8px', padding: '6px 12px',
+                        fontSize: '12px', cursor: 'pointer'
+                    }}
+                >
+                    Logout
+                </button>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>⏱️</div>
                 <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>InnTime</h1>
                 <div style={{ opacity: 0.8, fontSize: '13px' }}>Heldenbergen</div>

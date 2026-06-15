@@ -51,52 +51,86 @@ Eine moderne, mobile-optimierte Full-Stack Anwendung zur Zeiterfassung für Fitn
 ---
 ## 🚀 Installation & Setup
 
-Folge diesen Schritten, um die Anwendung zu installieren und zu starten.
+### Voraussetzungen
+[Node.js](https://nodejs.org/) muss installiert sein.
 
-### 1. Voraussetzungen
-Stelle sicher, dass [Node.js](https://nodejs.org/) installiert ist.
+### Lokal starten
 
-### 2. Repository klonen & Installieren
 ```bash
-git clone https://github.com/philipp-ger/InnTime.git
-cd InnTime
-
-# Backend installieren
+# Backend installieren & starten
 npm install
+npm start
 
-# Frontend installieren
-cd client
-npm install
-cd ..
+# Frontend (Dev-Modus, separates Terminal)
+cd client && npm install && npm run dev
 ```
 
-### 3. Frontend Build erstellen (WICHTIG)
-Da das Frontend auf dem Server im `dist`-Ordner liegen muss, muss dieser einmalig (oder nach Änderungen) erstellt werden:
+### Frontend-Build erstellen (für Produktion)
+
 ```bash
-cd client
+# Im InnTime/-Ordner:
 npm run build
-cd ..
 ```
+
+Danach reicht `npm start` — der Express-Server liefert das gebaute Frontend aus.
+
+---
+
+## 🌐 Deployment auf Hostinger
+
+### 1. Einmalig: Frontend bauen & Git aufsetzen
+
+```bash
+npm run build          # erstellt client/dist/
+git init
+git add .
+git commit -m "Initial commit"
+git remote add origin https://github.com/DEIN_USERNAME/inntime.git
+git push -u origin main
+```
+
+> `.env` und `data/*.db` werden durch `.gitignore` **nicht** gepusht.
+
+### 2. Hostinger hPanel konfigurieren
+
+| Einstellung | Wert |
+| :--- | :--- |
+| **Node.js Version** | 18+ |
+| **Build-Befehl** | `npm run build` |
+| **Start-Befehl** | `node src/server.js` |
+| **GitHub Auto-Deploy** | aktivieren |
+
+### 3. Updates deployen
+
+```bash
+npm run build          # wenn Frontend geändert
+git add .
+git commit -m "Update"
+git push               # Hostinger deployt automatisch
+```
+
+**Hostinger Business übernimmt automatisch:** SSL, CDN, WAF (Bot-/Brute-Force-Schutz), DDoS-Schutz, Auto-Restart.
 
 ---
 
 ## 💻 Betrieb & Nutzung
 
-### Studio-Betrieb (Ein-Port-System)
-Nachdem der Build erstellt wurde (siehe oben), startet ein einziger Befehl die gesamte App:
+Nachdem der Build erstellt wurde:
 
-1. **Server starten:** `node src/server.js`
+1. **Server starten:** `npm start`
 2. Öffne **[http://localhost:3000](http://localhost:3000)** im Browser.
 
-Die Anwendung liefert nun das moderne React-Frontend direkt über Port 3000 aus. 
-Falls du von anderen Geräten im WLAN zugreifen willst, nutze die IP deines Rechners (z.B. `http://192.168.178.20:3000`).
+Im WLAN erreichbar über die IP des Rechners, z.B. `http://192.168.178.20:3000`.
 
 ---
 
-## ⚙️ Konfiguration
+## ⚙️ Konfiguration & Sicherheit
 
-*   **Admin-Passwort:** Das Standard-Passwort ist `fitinn2024`. Du kannst es in `src/server.js` ändern.
-*   **Ports:** Der Standard-Port ist `3000` (Backend) und `5173` (Frontend).
+*   **Admin-Passwort:** Standard `fitinn2024` – nach erstem Login im Admin-Dashboard ändern.
+*   **Mitarbeiter-Passwort:** Standard `mitarbeiter2024` – im Admin-Dashboard unter "Mitarbeiter-PW" ändern.
+*   Passwörter werden **gehasht** gespeichert (niemals im Klartext in DB oder Code).
+*   **JWT-Secret** wird beim ersten Start zufällig generiert und in der DB gespeichert.
+*   **Ports:** Standard `3000` (Prod) und `5173` (Frontend-Dev).
 
 ---
 

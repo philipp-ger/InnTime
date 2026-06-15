@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format, subMonths, addMonths } from 'date-fns';
 import { de } from 'date-fns/locale';
 import Card from '../components/Card';
@@ -8,8 +9,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Auth-Helper: fetch mit Admin-Token
+function adminFetch(url, options = {}) {
+    const token = localStorage.getItem('admin_token');
+    return fetch(url, {
+        ...options,
+        headers: {
+            ...(options.headers || {}),
+            'Authorization': `Bearer ${token}`
+        }
+    });
+}
+
 const AdminDashboard = () => {
+    const navigate = useNavigate();
     const [report, setReport] = useState(null);
+    const [reportError, setReportError] = useState(null);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [expandedEmployee, setExpandedEmployee] = useState(null);
     const [filterType, setFilterType] = useState('all'); // all, Minijobber, Festangestellter
@@ -19,6 +34,8 @@ const AdminDashboard = () => {
     // Add/Edit Employee State
     const [showModal, setShowModal] = useState(false);
     const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [showEmployeePasswordModal, setShowEmployeePasswordModal] = useState(false);
+    const [employeePasswordForm, setEmployeePasswordForm] = useState({ newPassword: '', confirmPassword: '' });
     const [isEditing, setIsEditing] = useState(false);
     const [employeeForm, setEmployeeForm] = useState({
         id: '',
@@ -35,24 +52,47 @@ const AdminDashboard = () => {
     const loadReport = () => {
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth() + 1;
+        setReportError(null);
 
-        fetch(`/api/admin/report/${year}/${month}`)
-            .then(res => res.json())
-            .then(data => setReport(data));
+        adminFetch(`/api/admin/report/${year}/${month}`)
+            .then(res => {
+                if (res.status === 401) {
+                    localStorage.removeItem('admin_token');
+                    navigate('/admin');
+                    return null;
+                }
+                return res.json();
+            })
+            .then(data => {
+                if (!data) return;
+                if (data.error) {
+                    setReportError(data.error);
+                } else {
+                    setReport(data);
+                }
+            })
+            .catch(() => setReportError('Verbindungsfehler'));
     };
 
     useEffect(() => {
         loadReport();
     }, [currentDate]);
 
-    const handleExport = () => {
+    const handleExport = async () => {
         try {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth() + 1;
-            // Use location.href instead of window.open to avoid popup blockers
-            window.location.href = `/api/admin/export/${year}/${month}`;
+            const monthStr = String(month).padStart(2, '0');
+            const res = await adminFetch(`/api/admin/export/${year}/${month}`);
+            if (!res.ok) { alert('Export fehlgeschlagen'); return; }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `InnTime_Report_${year}-${monthStr}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
         } catch (err) {
-            console.error('CSV Export Error:', err);
             alert('CSV Export fehlgeschlagen: ' + err.message);
         }
     };
@@ -218,7 +258,7 @@ const AdminDashboard = () => {
         const method = isEditing ? 'PUT' : 'POST';
 
         try {
-            const res = await fetch(url, {
+            const res = await adminFetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(employeeForm)
@@ -259,7 +299,7 @@ const AdminDashboard = () => {
         }
 
         try {
-            const res = await fetch('/api/admin/change-password', {
+            const res = await adminFetch('/api/admin/change-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -283,9 +323,37 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleEmployeePasswordChange = async (e) => {
+        e.preventDefault();
+        if (employeePasswordForm.newPassword !== employeePasswordForm.confirmPassword) {
+            setFormMessage({ text: 'Passwörter stimmen nicht überein', type: 'error' });
+            return;
+        }
+        try {
+            const res = await adminFetch('/api/admin/change-employee-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPassword: employeePasswordForm.newPassword })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setFormMessage({ text: 'Mitarbeiter-Passwort geändert!', type: 'success' });
+                setTimeout(() => {
+                    setShowEmployeePasswordModal(false);
+                    setFormMessage(null);
+                    setEmployeePasswordForm({ newPassword: '', confirmPassword: '' });
+                }, 1500);
+            } else {
+                setFormMessage({ text: data.error, type: 'error' });
+            }
+        } catch (err) {
+            setFormMessage({ text: 'Verbindungsfehler', type: 'error' });
+        }
+    };
+
     const handleDeleteEmployee = async (id) => {
         try {
-            const res = await fetch(`/api/admin/employee/${id}`, {
+            const res = await adminFetch(`/api/admin/employee/${id}`, {
                 method: 'DELETE'
             });
             const data = await res.json();
@@ -316,6 +384,14 @@ const AdminDashboard = () => {
             return 0;
         });
 
+    if (reportError) return (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#e53e3e' }}>
+            <p>Fehler: {reportError}</p>
+            <button onClick={loadReport} style={{ marginTop: '16px', padding: '8px 16px', cursor: 'pointer' }}>
+                Erneut versuchen
+            </button>
+        </div>
+    );
     if (!report) return <div style={{ padding: '40px', textAlign: 'center' }}>Laden...</div>;
 
     return (
@@ -327,9 +403,12 @@ const AdminDashboard = () => {
                 </h1>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <Button variant="outline" onClick={() => setShowPasswordModal(true)}>
-                        🔐 Passwort ändern
+                        🔐 Admin-PW
                     </Button>
-                    <Button variant="outline" onClick={() => window.location.href = '/'}>
+                    <Button variant="outline" onClick={() => setShowEmployeePasswordModal(true)}>
+                        👥 Mitarbeiter-PW
+                    </Button>
+                    <Button variant="outline" onClick={() => { localStorage.removeItem('admin_token'); navigate('/admin'); }}>
                         Logout
                     </Button>
                 </div>
@@ -700,6 +779,60 @@ const AdminDashboard = () => {
 
                             <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
                                 <Button type="button" variant="danger" onClick={() => { setShowPasswordModal(false); setFormMessage(null); }} style={{ flex: 1 }}>
+                                    Abbrechen
+                                </Button>
+                                <Button type="submit" variant="success" style={{ flex: 1 }}>
+                                    Speichern
+                                </Button>
+                            </div>
+                        </form>
+                    </Card>
+                </div>
+            )}
+
+            {/* Mitarbeiter-Passwort Modal */}
+            {showEmployeePasswordModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
+                    <Card style={{ width: '100%', maxWidth: '450px', position: 'relative' }}>
+                        <h2 style={{ marginBottom: '8px', fontSize: '20px' }}>👥 Mitarbeiter-Passwort ändern</h2>
+                        <p style={{ color: '#718096', fontSize: '14px', marginBottom: '24px' }}>
+                            Dieses Passwort gilt für alle Mitarbeiter beim Login in den Zeiterfassungsbereich.
+                        </p>
+
+                        <form onSubmit={handleEmployeePasswordChange}>
+                            <Input
+                                type="password"
+                                label="Neues Passwort"
+                                value={employeePasswordForm.newPassword}
+                                onChange={(e) => setEmployeePasswordForm({ ...employeePasswordForm, newPassword: e.target.value })}
+                                placeholder="••••••••"
+                                required
+                            />
+                            <Input
+                                type="password"
+                                label="Neues Passwort bestätigen"
+                                value={employeePasswordForm.confirmPassword}
+                                onChange={(e) => setEmployeePasswordForm({ ...employeePasswordForm, confirmPassword: e.target.value })}
+                                placeholder="••••••••"
+                                required
+                            />
+
+                            {formMessage && (
+                                <div style={{
+                                    padding: '12px',
+                                    background: formMessage.type === 'success' ? '#f0fff4' : '#fff5f5',
+                                    color: formMessage.type === 'success' ? '#38a169' : '#e53e3e',
+                                    borderRadius: '8px',
+                                    marginBottom: '16px',
+                                    fontSize: '14px',
+                                    textAlign: 'center'
+                                }}>
+                                    {formMessage.text}
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
+                                <Button type="button" variant="danger" onClick={() => { setShowEmployeePasswordModal(false); setFormMessage(null); }} style={{ flex: 1 }}>
                                     Abbrechen
                                 </Button>
                                 <Button type="submit" variant="success" style={{ flex: 1 }}>
