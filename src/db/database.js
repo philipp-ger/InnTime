@@ -221,4 +221,8 @@ function initializeTestData() {
   });
 }
 
-// Start i
+// Start initialization
+initializeDatabase();
+initializeTestData();
+
+module.exports = db;
